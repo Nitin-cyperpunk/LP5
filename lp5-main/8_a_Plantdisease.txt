@@ -1,0 +1,98 @@
+
+# CELL 1 - Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import tensorflow_datasets as tfds
+from tensorflow import keras
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+
+# CELL 2 - Load Dataset
+(train_ds, test_ds), info = tfds.load(
+    'plant_village',
+    split=['train[:80%]', 'train[80%:]'],
+    as_supervised=True,
+    with_info=True
+)
+class_names = info.features['label'].names
+print("Total Classes:", len(class_names))
+
+# CELL 3 - Preprocess
+def preprocess(image, label):
+    image = tf.image.resize(image, [64, 64])
+    image = tf.cast(image, tf.float32) / 255.0
+    return image, label
+
+train_ds = train_ds.map(preprocess).batch(32).prefetch(tf.data.AUTOTUNE)
+test_ds  = test_ds.map(preprocess).batch(32).prefetch(tf.data.AUTOTUNE)
+
+# CELL 4 - Define the Model
+model = keras.Sequential([
+    Conv2D(32, (3,3), activation='relu', input_shape=(64, 64, 3)),
+    MaxPooling2D(2, 2),
+
+    Conv2D(64, (3,3), activation='relu'),
+    MaxPooling2D(2, 2),
+
+    Conv2D(128, (3,3), activation='relu'),
+    MaxPooling2D(2, 2),
+
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.5),
+    Dense(38, activation='softmax')
+])
+
+model.summary()
+
+# CELL 5 - Compile the Model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# CELL 6 - Train the Model
+history = model.fit(train_ds,
+                    epochs=10,
+                    validation_data=test_ds)
+
+# CELL 7 - Evaluate the Model
+test_loss, test_acc = model.evaluate(test_ds)
+print('Test Accuracy:', test_acc)
+print('Test Loss    :', test_loss)
+
+# CELL 8 - Plot Accuracy and Loss
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'],     label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'],     label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# CELL 9 - Predict and Show Sample Images
+plt.figure(figsize=(12, 6))
+for images, labels in test_ds.take(1):
+    predictions    = model.predict(images[:9])
+    predicted_lbls = np.argmax(predictions, axis=1)
+    for i in range(9):
+        plt.subplot(3, 3, i+1)
+        plt.imshow(images[i])
+        plt.title(f"P: {class_names[predicted_lbls[i]].split('_')[-1]}\n"
+                  f"A: {class_names[labels[i]].split('_')[-1]}", fontsize=8)
+        plt.axis('off')
+plt.suptitle('Plant Disease Predictions (P=Predicted, A=Actual)')
+plt.tight_layout()
+plt.show()

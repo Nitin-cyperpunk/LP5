@@ -1,0 +1,122 @@
+
+# CELL 1 - Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import confusion_matrix, classification_report
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+
+# CELL 2 - Load Dataset
+print("Loading Letter Recognition dataset...")
+dataset  = fetch_openml(name='letter', version=1, as_frame=True, parser='auto')
+X        = dataset.data
+y        = dataset.target
+
+print("Dataset shape :", X.shape)
+print("Classes       :", sorted(y.unique()))
+
+# CELL 3 - Preprocess
+# Encode A-Z to 0-25
+le        = LabelEncoder()
+y_encoded = le.fit_transform(y)
+y_onehot  = keras.utils.to_categorical(y_encoded, num_classes=26)
+
+# Scale features
+scaler   = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# CELL 4 - Split Dataset
+x_train, x_test, y_train, y_test, ye_train, ye_test = train_test_split(
+    X_scaled, y_onehot, y_encoded,
+    test_size=0.2, random_state=42, stratify=y_encoded)
+
+print("Training samples:", x_train.shape[0])
+print("Testing  samples:", x_test.shape[0])
+
+# CELL 5 - Build the Model
+model = Sequential()
+model.add(Dense(256, activation='relu', input_shape=(x_train.shape[1],)))
+model.add(Dropout(0.3))
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(64,  activation='relu'))
+model.add(Dense(26,  activation='softmax'))  # 26 classes A-Z
+
+model.summary()
+
+# CELL 6 - Compile the Model
+model.compile(loss='categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+# CELL 7 - Train the Model
+early_stop = EarlyStopping(monitor='val_loss', patience=5,
+                            restore_best_weights=True)
+
+history = model.fit(x_train, y_train,
+                    epochs=30,
+                    batch_size=64,
+                    validation_split=0.2,
+                    callbacks=[early_stop])
+
+# CELL 8 - Evaluate on Test Set
+loss, acc = model.evaluate(x_test, y_test)
+print(f"\nTest Accuracy : {acc*100:.2f}%")
+print(f"Test Loss     : {loss:.4f}")
+
+# CELL 9 - Plot Accuracy and Loss
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'],     label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'],     label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Loss over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# CELL 10 - Confusion Matrix
+y_pred     = model.predict(x_test)
+y_pred_enc = np.argmax(y_pred, axis=1)
+
+cm = confusion_matrix(ye_test, y_pred_enc)
+plt.figure(figsize=(14, 12))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=le.classes_,
+            yticklabels=le.classes_)
+plt.title('Confusion Matrix - OCR Letter Recognition')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.tight_layout()
+plt.show()
+
+# Classification Report
+print("\nClassification Report:")
+print(classification_report(ye_test, y_pred_enc,
+                             target_names=le.classes_))
+
+# CELL 11 - Sample Predictions
+print("\nSample Predictions (first 5):")
+print(f"{'#':<5} {'Actual':>8} {'Predicted':>12}")
+print("-" * 28)
+for i in range(5):
+    actual = le.classes_[ye_test[i]]
+    pred   = le.classes_[y_pred_enc[i]]
+    print(f"{i:<5} {actual:>8} {pred:>12}")

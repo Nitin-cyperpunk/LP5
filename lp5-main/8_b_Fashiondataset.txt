@@ -1,0 +1,103 @@
+
+# CELL 1 - Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+
+# CELL 2 - Load Dataset
+fashion_mnist = keras.datasets.fashion_mnist
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+
+class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+               'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
+
+print("Training set shape:", train_images.shape)
+print("Testing  set shape:", test_images.shape)
+print("Classes           :", class_names)
+
+# CELL 3 - Normalize the Images
+train_images = train_images / 255.0
+test_images  = test_images  / 255.0
+
+# CELL 4 - Visualize Sample Images
+plt.figure(figsize=(10, 4))
+for i in range(10):
+    plt.subplot(2, 5, i+1)
+    plt.imshow(train_images[i], cmap='gray')
+    plt.title(class_names[train_labels[i]], fontsize=8)
+    plt.axis('off')
+plt.suptitle('Sample Fashion MNIST Images')
+plt.tight_layout()
+plt.show()
+
+# CELL 5 - Define the Model (from PDF)
+model = keras.Sequential([
+    keras.layers.Flatten(input_shape=(28, 28)),
+    keras.layers.Dense(128, activation='relu'),
+    keras.layers.Dense(10,  activation='softmax')
+])
+
+model.summary()
+
+# CELL 6 - Compile the Model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# CELL 7 - Train the Model
+history = model.fit(train_images, train_labels,
+                    epochs=10,
+                    validation_split=0.2)
+
+# CELL 8 - Evaluate the Model
+test_loss, test_acc = model.evaluate(test_images, test_labels)
+print('Test Accuracy:', test_acc)
+print('Test Loss    :', test_loss)
+
+# CELL 9 - Plot Accuracy and Loss
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'],     label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'],     label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# CELL 10 - Predict and Show Sample Images
+predictions     = model.predict(test_images)
+predicted_labels = np.argmax(predictions, axis=1)
+
+plt.figure(figsize=(12, 6))
+for i in range(10):
+    plt.subplot(2, 5, i+1)
+    plt.imshow(test_images[i], cmap='gray')
+    color = 'green' if predicted_labels[i] == test_labels[i] else 'red'
+    plt.title(f"P: {class_names[predicted_labels[i]]}\n"
+              f"A: {class_names[test_labels[i]]}", fontsize=7, color=color)
+    plt.axis('off')
+plt.suptitle('Predictions (Green=Correct, Red=Wrong)')
+plt.tight_layout()
+plt.show()
+
+# CELL 11 - Sample Predictions Table
+print("\nSample Predictions (first 5):")
+print(f"{'#':<5} {'Actual':>15} {'Predicted':>15}")
+print("-" * 38)
+for i in range(5):
+    actual = class_names[test_labels[i]]
+    pred   = class_names[predicted_labels[i]]
+    print(f"{i:<5} {actual:>15} {pred:>15}")

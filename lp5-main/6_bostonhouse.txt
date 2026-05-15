@@ -1,0 +1,94 @@
+
+# CELL 1 - Import Libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.preprocessing import StandardScaler
+
+# CELL 2 - Load Dataset
+(x_train, y_train), (x_test, y_test) = keras.datasets.boston_housing.load_data(
+    test_split=0.3, seed=42)
+
+print("Training set shape:", x_train.shape)
+print("Testing  set shape:", x_test.shape)
+
+# CELL 3 - Preprocess (Scale Features)
+scaler  = StandardScaler()
+x_train = scaler.fit_transform(x_train)
+x_test  = scaler.transform(x_test)
+
+print("Scaling done. Mean ~0:", x_train.mean().round(2))
+
+# CELL 4 - Build the Model
+model = Sequential()
+model.add(Dense(64,  activation='relu', input_shape=(x_train.shape[1],)))
+model.add(Dropout(0.2))
+model.add(Dense(32,  activation='relu'))
+model.add(Dense(1))   # No activation for regression output
+
+model.summary()
+
+# CELL 5 - Compile the Model
+model.compile(loss='mean_squared_error',
+              optimizer='adam',
+              metrics=['mean_absolute_error'])
+
+# CELL 6 - Train the Model
+early_stop = EarlyStopping(monitor='val_loss', patience=5)
+
+history = model.fit(x_train, y_train,
+                    epochs=100,
+                    batch_size=32,
+                    validation_split=0.2,
+                    callbacks=[early_stop])
+
+# CELL 7 - Evaluate on Test Set
+loss, mae = model.evaluate(x_test, y_test)
+print(f"\nTest Loss (MSE) : {loss:.4f}")
+print(f"Test MAE        : {mae:.4f}")
+
+# CELL 8 - Plot Loss
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['loss'],     label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Model Loss over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Loss (MSE)')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['mean_absolute_error'],     label='Train MAE')
+plt.plot(history.history['val_mean_absolute_error'], label='Val MAE')
+plt.title('Model MAE over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('MAE')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# CELL 9 - Actual vs Predicted Plot
+y_pred = model.predict(x_test).flatten()
+
+plt.figure(figsize=(6, 5))
+plt.scatter(y_test, y_pred, alpha=0.6, color='steelblue', edgecolors='k')
+plt.plot([y_test.min(), y_test.max()],
+         [y_test.min(), y_test.max()], 'r--', lw=2, label='Ideal Fit')
+plt.xlabel('Actual Price')
+plt.ylabel('Predicted Price')
+plt.title('Actual vs Predicted House Prices')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Sample Predictions
+print("\nSample Predictions (first 5):")
+print(f"{'#':<5} {'Actual':>10} {'Predicted':>12}")
+print("-" * 30)
+for i in range(5):
+    print(f"{i:<5} {y_test[i]:>10.2f} {y_pred[i]:>12.2f}")

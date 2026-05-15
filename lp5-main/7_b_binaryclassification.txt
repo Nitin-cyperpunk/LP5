@@ -1,0 +1,79 @@
+
+# CELL 1 - Import Libraries
+import numpy as np
+from keras.datasets import imdb
+from keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+from keras.layers import Embedding, Bidirectional, LSTM, Dense
+import matplotlib.pyplot as plt
+
+# CELL 2 - Load IMDB Dataset
+(x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=10000)
+
+print("Training samples:", len(x_train))
+print("Testing  samples:", len(x_test))
+print("Label values    :", np.unique(y_train), " (0=Negative, 1=Positive)")
+
+# CELL 3 - Pad Sequences to fixed length of 250
+max_len = 250
+x_train = pad_sequences(x_train, maxlen=max_len)
+x_test  = pad_sequences(x_test,  maxlen=max_len)
+
+print("x_train shape:", x_train.shape)
+print("x_test  shape:", x_test.shape)
+
+# CELL 4 - Build the Model (from PDF)
+model = Sequential()
+model.add(Embedding(input_dim=10000, output_dim=128, input_length=max_len))
+model.add(Bidirectional(LSTM(64, return_sequences=True)))
+model.add(Bidirectional(LSTM(32)))
+model.add(Dense(1, activation='sigmoid'))
+
+model.summary()
+
+# CELL 5 - Compile the Model
+model.compile(loss='binary_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+# CELL 6 - Train the Model
+history = model.fit(x_train, y_train,
+                    epochs=5,
+                    batch_size=128,
+                    validation_split=0.2)
+
+# CELL 7 - Evaluate on Test Set
+loss, acc = model.evaluate(x_test, y_test, batch_size=128)
+print(f"\nTest Accuracy : {acc:.4f}")
+print(f"Test Loss     : {loss:.4f}")
+
+# CELL 8 - Plot Accuracy and Loss
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'],     label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'],     label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Loss over Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# CELL 9 - Predict on Sample Reviews
+sample = x_test[:5]
+preds  = model.predict(sample)
+
+print("\nSample Predictions:")
+for i, p in enumerate(preds):
+    label = "Positive" if p >= 0.5 else "Negative"
+    print(f"  Review {i+1}: Score={p[0]:.4f} → {label}  | Actual: {'Positive' if y_test[i]==1 else 'Negative'}")
